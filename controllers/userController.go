@@ -21,7 +21,7 @@ func Signup(c *gin.Context) {
 	}
 
 	if c.Bind(&body) != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
+		c.JSON(http.StatusBadRequest, gin.H{ // 400
 			"error": "Failed to read body",
 		})
 		return
@@ -37,7 +37,7 @@ func Signup(c *gin.Context) {
 	}
 
 	// Create the user
-	user := &models.User{
+	user := models.User{
 		Email:    body.Email,
 		Password: string(hash),
 	}
@@ -85,16 +85,18 @@ func Login(c *gin.Context) {
 	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(body.Password))
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
-			"error": "Invalid passwd",
+			"error": "Invalid email or passwd",
 		})
+		return // 切记退出
 	}
 
 	// !!!Generate a jwt token
+	// `claim`: jwt的第二部分，即payload
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"sub": user.ID, // subject
 		"exp": time.Now().Add(time.Hour * 24 * 7).Unix(),
 	})
-	fmt.Println(token)
+	fmt.Println("token pointer:", token)
 
 	// Sign and get the complete encoded token as a string using the secret
 	tokenString, err := token.SignedString([]byte(os.Getenv("SECRET")))
@@ -116,6 +118,7 @@ func Login(c *gin.Context) {
 }
 
 func Validate(c *gin.Context) {
+	// middleware: Auth中附加到request中的user对象
 	user, ok := c.Get("user")
 	if !ok {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -123,9 +126,11 @@ func Validate(c *gin.Context) {
 		})
 	}
 	// 类型转换
-	email := user.(models.User).Email
+	// email := user.(models.User).Email
 
 	c.JSON(http.StatusOK, gin.H{
-		"email": email,
+		// user中保存的密码是Hash之后的值
+		"user_ori":   user,
+		"user_trans": user.(models.User),
 	})
 }
